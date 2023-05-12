@@ -1,0 +1,73 @@
+# 该配置文件仅仅是用于测试
+[server]
+httpServer = true
+httpPort = 9119
+name = "vermouth_node_1"
+# if you want to run one server or run with standalone mode
+# set mode flag to 'stand' otherwise 'cluster'
+mode = "cluster"
+# logger is implements the interface of io.Writer,
+# in order to adapte other framework
+rootLevel = "Info"
+dataDir = "./data"
+
+# you can add multi http reverse proxy, just use [[http_proxy]]
+[[httpProxy]]
+# listen at port to provide http reverse proxy service
+port = 9000
+# prefixer type, "hash-prifixer"
+prefixerType = "hash-prefixer"
+# configure for default proxy path, you can add path for increasing
+# [[http_proxy.paths]] tag just like above
+[[httpProxy.paths]]
+balanceMode = "round-robin"
+pattern = "/api"
+hosts = [
+    "127.0.0.1:8080"
+]
+[[httpProxy.paths]]
+balanceMode = "round-robin"
+pattern = "/api2"
+hosts = [
+    "192.168.3.1:8080",
+    "192.168.3.2:8080",
+    "192.168.3.3:8080",
+]
+
+[[discovery]]
+port = 9000
+namespace = "zookeeper"
+address = [
+    "localhost:2181"
+]
+connectTimeout = 10
+
+[raft]
+# raft 通信使用的端口号
+tcpAddress = "127.0.0.1:7000"
+# 以 follower 身份启动节点，不会加载任何代理的配置文件，从 leader 同步
+leader = true
+# Master 节点所开放的 http 服务地址
+# 通过 http 请求来加入集群
+leaderAddress = "127.0.0.1:9119"
+snapshotInterval = 10
+snapshotThreshold = 1
+heartbeatTimeout = 2
+electionTimeout = 2
+
+# root logger use for vermouth, can config multi stream to output
+[[log]]
+name = "root"
+type = "console"
+level = "debug"
+color = true
+format = ""
+[[log]]
+name = "root"
+type = "file"
+level = "debug"
+fileName = "../logs/test.log"
+maxSize = 0
+maxLine = 0
+dateSlice = ""
+format = ""

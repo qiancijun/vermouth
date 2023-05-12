@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option go_package = "./pb";
+
+package vermouth_grpc;
+
+message RegisterToProxyReq {
+    int64 port = 1;
+    string prefix = 2;
+    string balanceMode = 3; // 如果 prefix 不存在，使用 balanceMode 参数创建
+    bool static = 4; // 同 3
+    string localAddr = 5; // 要注册的地址
+}
+
+message CancalReq {
+    int64 port = 1;
+    string prefix = 2;
+    string localAddr = 3;
+}
+
+message JoinClusterReq {
+    string nodeName = 1;
+    string tcpAddress = 2;
+}
+
+message Res {
+    string message = 1;
+}
+
+service VermouthGrpc {
+    rpc RegisterToProxy(RegisterToProxyReq) returns (Res); // 注册
+    rpc Cancel(CancalReq) returns (Res); // 注销
+    rpc JoinCluster(JoinClusterReq) returns (Res);
+}
