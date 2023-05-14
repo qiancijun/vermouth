@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/raft"
-	"github.com/qiancijun/vermouth/config"
 	"github.com/qiancijun/vermouth/logger"
 	"github.com/qiancijun/vermouth/pb"
 	"github.com/qiancijun/vermouth/utils"
@@ -34,19 +33,24 @@ func (s *rpcServer) RegisterToProxy(ctx context.Context, req *pb.RegisterToProxy
 	mode := VermouthPeer().Mode
 	port := req.GetPort()
 	proxy, ok := VermouthPeer().Ctx.HttpReverseProxyList[port]
+	if !ok {
+		if err := VermouthPeer().addHttpProxy(&addHttpProxyBody{
+			Port:       req.Port,
+			PrefixType: "hash-prefixer",
+		}); err != nil {
+			errMsg := fmt.Sprintf("rpc can't create new proxy at port %d, it is a bug", req.Port)
+			logger.Error(errMsg)
+			return &pb.Res{Message: "failed"}, nil
+		}
+		proxy = VermouthPeer().Ctx.HttpReverseProxyList[port]
+		if proxy == nil {
+			errMsg := fmt.Sprintf("rpc can't create new proxy at port %d, it is a bug", req.Port)
+			logger.Error(errMsg)
+			return &pb.Res{Message: "failed"}, nil
+		}
+	}
 	switch mode {
 	case "stand":
-		if !ok {
-			proxy = NewHttpReverseProxy(config.HttpProxyArgs{
-				Port:         req.Port,
-				PrefixerType: "hash-prefixer",
-			})
-			if err := VermouthPeer().Ctx.AddHttpReverseProxy(proxy); err != nil {
-				errMsg := fmt.Sprintf("rpc can't create new proxy at port %d, it is a bug", req.Port)
-				logger.Error(errMsg)
-				return &pb.Res{Message: "failed"}, nil
-			}
-		}
 		// 前缀不存在，创建一个
 		if !proxy.checkPrefixExists(req.Prefix) {
 			proxy.AddPrefix(req.GetPrefix(), req.GetBalanceMode(), []string{req.GetLocalAddr()}, req.GetStatic())
@@ -55,34 +59,22 @@ func (s *rpcServer) RegisterToProxy(ctx context.Context, req *pb.RegisterToProxy
 			proxy.AddHost(req.GetPrefix(), req.GetLocalAddr())
 		}
 	case "cluster":
-		if !ok {
-			if err := VermouthPeer().RaftNode.addHttpProxy(&addHttpProxyBody{req.Port, "hash-prefixer"}); err != nil {
-				logger.Errorf("[rpcServer] %s", err.Error())
-				return &pb.Res{Message: "failed"}, nil
-			}
-			proxy, ok = VermouthPeer().Ctx.HttpReverseProxyList[req.Port]
-			if !ok {
-				errMsg := fmt.Sprintf("rpc can't create new proxy at port %d, it is a bug", req.Port)
-				logger.Error(errMsg)
-				return &pb.Res{Message: "failed"}, nil
-			}
-		}
 		if !proxy.checkPrefixExists(req.Prefix) {
-			if err := VermouthPeer().RaftNode.addHttpProxyPrefix(&addHttpProxyPrefixBody{
-				Port: port,
-				Prefix: req.GetPrefix(), 
-				BalanceType: req.GetBalanceMode(), 
-				ProxyPass: []string{req.GetLocalAddr()}, 
-				Static: req.GetStatic(),
+			if err := VermouthPeer().RaftNode.AppendLogEntry(ADD_HTTP_PROXY_PREFIX, &addHttpProxyPrefixBody{
+				Port:        port,
+				Prefix:      req.GetPrefix(),
+				BalanceType: req.GetBalanceMode(),
+				ProxyPass:   []string{req.GetLocalAddr()},
+				Static:      req.GetStatic(),
 			}); err != nil {
 				logger.Errorf("[rpcServer] %s", err.Error())
 				return &pb.Res{Message: "failed"}, nil
 			}
 		} else {
-			if err := VermouthPeer().RaftNode.addHttpProxyHost(&httpProxyHostBody{
-				Port: port,
+			if err := VermouthPeer().RaftNode.AppendLogEntry(ADD_HTTP_PROXY_HOST, &httpProxyHostBody{
+				Port:   port,
 				Prefix: req.GetPrefix(),
-				Host: req.GetLocalAddr(),
+				Host:   req.GetLocalAddr(),
 			}); err != nil {
 				logger.Errorf("[rpcServer] %s", err.Error())
 				return &pb.Res{Message: "failed"}, nil
@@ -96,9 +88,9 @@ func (s *rpcServer) RegisterToProxy(ctx context.Context, req *pb.RegisterToProxy
 func (s *rpcServer) Cancel(ctx context.Context, req *pb.CancalReq) (*pb.Res, error) {
 	logger.Debugf("[rpcServer] receive cancel request, {port: %d, prefix: %s, host: %s}", req.GetPort(), req.GetPrefix(), req.GetLocalAddr())
 	if err := VermouthPeer().removeHttpProxyHost(&httpProxyHostBody{
-		Port: req.GetPort(),
+		Port:   req.GetPort(),
 		Prefix: req.GetPrefix(),
-		Host: req.GetLocalAddr(),
+		Host:   req.GetLocalAddr(),
 	}); err != nil {
 		return &pb.Res{Message: "failed"}, nil
 	}
@@ -107,13 +99,13 @@ func (s *rpcServer) Cancel(ctx context.Context, req *pb.CancalReq) (*pb.Res, err
 	hosts := proxy.GetHosts(req.GetPrefix())
 	if len(hosts) == 0 {
 		if err := VermouthPeer().removeHttpProxyPrefix(&removeHttpProxyPrefixBody{
-			Port: req.GetPort(),
+			Port:   req.GetPort(),
 			Prefix: req.GetPrefix(),
 		}); err != nil {
 			return &pb.Res{Message: "failed"}, nil
 		}
 	}
-	return &pb.Res{Message: Success}, nil 
+	return &pb.Res{Message: Success}, nil
 }
 
 func (s *rpcServer) JoinCluster(ctx context.Context, req *pb.JoinClusterReq) (*pb.Res, error) {
@@ -130,6 +122,16 @@ func (s *rpcServer) JoinCluster(ctx context.Context, req *pb.JoinClusterReq) (*p
 	return &pb.Res{Message: Success}, nil
 }
 
+func (s *rpcServer) LoadBalance(ctx context.Context, req *pb.LoadBalanceReq) (*pb.Res, error) {
+	logger.Debugf("[rpcServer] receive loadBalance request, {port: %d, prefix: %s}", req.GetPort(), req.GetPrefix())
+	proxy := VermouthPeer().GetHttpProxy(req.GetPort())
+	if proxy == nil {
+		return &pb.Res{Message: ""}, errors.New("proxy not exists")
+	}
+	addr := proxy.LoadBalance(req.GetPrefix(), req.GetFact())
+	return &pb.Res{Message: addr}, nil
+}
+
 func (s *rpcServer) Start(closeChan chan struct{}) {
 	listen, err := utils.CreateListener(s.port)
 	if err != nil {
@@ -140,6 +142,6 @@ func (s *rpcServer) Start(closeChan chan struct{}) {
 	pb.RegisterVermouthGrpcServer(server, s)
 	go server.Serve(listen)
 	logger.Infof("start rpc server success")
-	<- closeChan
+	<-closeChan
 	server.Stop()
 }

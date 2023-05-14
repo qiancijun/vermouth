@@ -24,6 +24,8 @@ const (
 	RMV_HTTP_PROXY        uint16 = 0x0008
 	SET_RATE_LIMITER      uint16 = 0x0009
 	CHG_STATIC            uint16 = 0x0010
+	CHG_LB                uint16 = 0x0011
+	CHG_STATE             uint16 = 0x0012
 )
 
 var (
@@ -39,6 +41,8 @@ var (
 		RMV_HTTP_PROXY:        "remove-http-proxy",
 		SET_RATE_LIMITER:      "set-rate-limiter",
 		CHG_STATIC:            "change-static",
+		CHG_LB:                "change-lb",
+		CHG_STATE:             "change-state",
 	}
 )
 
@@ -96,6 +100,10 @@ func (ctx *StateContext) Apply(logEntry *raft.Log) interface{} {
 		ret = handleSetRateLimiter(bidata, ctx)
 	case CHG_STATIC:
 		ret = handleChangeStatic(bidata, ctx)
+	case CHG_LB:
+		ret = handleChangeLb(bidata, ctx)
+	case CHG_STATE:
+		ret = handleChangeState(bidata, ctx)
 	}
 
 	_, v := ret.(error)

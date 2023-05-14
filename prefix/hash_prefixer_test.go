@@ -53,7 +53,7 @@ func TestMappingFunction(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			for i, path := range c.args {
-				_, _, realPath, err := p.MappingPath(path)
+				_, _, realPath, err := p.MappingPath(path, nil)
 				assert.NoError(t, err)
 				assert.Equal(t, c.expect[i], realPath)
 			}

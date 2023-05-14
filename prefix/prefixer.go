@@ -2,6 +2,7 @@ package prefix
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/qiancijun/vermouth/balancer"
 )
@@ -16,7 +17,7 @@ type Prefixer interface {
 	// 若没有找到对应的前缀，返回 "/"
 	// 返回值，匹配到的前缀，原pathUrl, 真实的代理地址
 	// 例如: /api /hello 127.0.0.1:8080/hello, nil
-	MappingPath(string) (string, string, string, error)
+	MappingPath(string, *http.Request) (string, string, string, error)
 }
 
 type Factory func() Prefixer

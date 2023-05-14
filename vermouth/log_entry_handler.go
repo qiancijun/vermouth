@@ -138,3 +138,23 @@ func handleChangeStatic(data []byte, ctx *StateContext) error {
 	hp.changeStatic(body.Prefix)
 	return nil
 }
+
+func handleChangeLb(data []byte, ctx *StateContext) error {
+	body := &httpChangeLbBody{}
+	if err := decode(data, body); err != nil {
+		return err
+	}
+	hp := ctx.HttpReverseProxyList[body.Port]
+	hp.changeLb(body.Prefix, body.Lb)
+	return nil
+}
+
+func handleChangeState(data []byte, ctx *StateContext) error {
+	body := &changeHttpProxyStateBody{}
+	if err := decode(data, body); err != nil {
+		return err
+	}
+	hp := ctx.HttpReverseProxyList[body.Port]
+	hp.changeState(body.State)
+	return nil
+}

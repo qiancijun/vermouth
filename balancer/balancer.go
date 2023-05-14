@@ -1,6 +1,9 @@
 package balancer
 
-import "errors"
+import (
+	"errors"
+	"net/http"
+)
 
 type Algorithm string
 
@@ -8,7 +11,7 @@ type Algorithm string
 type Balancer interface {
 	Add(string)
 	Remove(string)
-	Balance(string) (string, error)
+	Balance(string, *http.Request) (string, error)
 	Inc(string)
 	Done(string)
 	Len() int

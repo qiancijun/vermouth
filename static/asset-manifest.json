@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/static/css/main.e9ca0b00.css",
-    "main.js": "/static/js/main.5d8f2d5f.js",
+    "main.js": "/static/js/main.cb4fda1c.js",
     "static/media/vermouth.jpg": "/static/media/vermouth.bbc900356e376e52990d.jpg",
     "static/media/server.svg": "/static/media/server.e87e1186fe8b59fc0e4e95eddd02d1c7.svg",
     "index.html": "/index.html",
     "static/media/add.svg": "/static/media/add.655f7b88946e0eaed18d76148a3c76ae.svg",
     "main.e9ca0b00.css.map": "/static/css/main.e9ca0b00.css.map",
-    "main.5d8f2d5f.js.map": "/static/js/main.5d8f2d5f.js.map"
+    "main.cb4fda1c.js.map": "/static/js/main.cb4fda1c.js.map"
   },
   "entrypoints": [
     "static/css/main.e9ca0b00.css",
-    "static/js/main.5d8f2d5f.js"
+    "static/js/main.cb4fda1c.js"
   ]
 }

@@ -57,10 +57,10 @@ func TestRaftCluster(t *testing.T) {
 		"192.168.3.12:8080",
 	}
 
-	err = leader.addHttpProxy(&addHttpProxyBody{9000, "hash-prefixer"})
+	err = leader.AppendLogEntry(ADD_HTTP_PROXY, &addHttpProxyBody{9000, "hash-prefixer"})
 	assert.NoError(t, err)
 	time.Sleep(2 * time.Second)
-	err = leader.addHttpProxyPrefix(&addHttpProxyPrefixBody{9000, false, "/api", "round-robin", expect})
+	err = leader.AppendLogEntry(ADD_HTTP_PROXY_PREFIX, &addHttpProxyPrefixBody{9000, false, "/api", "round-robin", expect})
 	time.Sleep(2 * time.Second)
 	assert.NoError(t, err)
 

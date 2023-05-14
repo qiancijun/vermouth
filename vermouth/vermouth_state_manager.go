@@ -14,90 +14,92 @@ var (
 )
 
 func (Vermouth *Vermouth) addHttpProxyPrefix(body *addHttpProxyPrefixBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	if vermouth.Ctx.HttpReverseProxyList[body.Port].PrefixExists(body.Prefix) {
+		return errors.New("prefix already exixts")
+	}
 	switch vermouth.Mode {
 	case "stand":
-		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
-		if !ok {
-			return ErrHttpProxyNotExists
-		}
+
 		proxy.AddPrefix(body.Prefix, body.BalanceType, body.ProxyPass, body.Static)
 	case "cluster":
-		if !vermouth.Ctx.HttpReverseProxyList[body.Port].PrefixExists(body.Prefix) {
-			if err := vermouth.RaftNode.addHttpProxyPrefix(body); err != nil {
-				return err
-			}
+		if err := vermouth.RaftNode.AppendLogEntry(ADD_HTTP_PROXY_PREFIX, body); err != nil {
+			return err
 		}
-
 	}
 	return nil
 }
 
 func (Vermouth *Vermouth) removeHttpProxyPrefix(body *removeHttpProxyPrefixBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	if !proxy.PrefixExists(body.Prefix) {
+		return errors.New("prefix not exists")
+	}
 	switch vermouth.Mode {
-	case "stand":
-		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
-		if !ok {
-			return ErrHttpProxyNotExists
-		}
+	case Stand:
 		proxy.RemovePrefix(body.Prefix)
-	case "cluster":
-		if vermouth.Ctx.HttpReverseProxyList[body.Port].PrefixExists(body.Prefix) {
-			if err := vermouth.RaftNode.removeHttpProxyPrefix(body.Port, body.Prefix); err != nil {
-				return err
-			}
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(RMV_HTTP_PROXY_PREFIX, body); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (vermouth *Vermouth) removeHttpProxyHost(body *httpProxyHostBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	if proxy.HostExists(body.Prefix, body.Host) {
+		return errors.New("host not exists")
+	}
 	switch vermouth.Mode {
-	case "stand":
-		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
-		if !ok {
-			return ErrHttpProxyNotExists
-		}
+	case Stand:
 		proxy.RemoveHost(body.Prefix, body.Host)
-	case "cluster":
-		if vermouth.Ctx.HttpReverseProxyList[body.Port].HostExists(body.Prefix, body.Host) {
-			if err := vermouth.RaftNode.removeHttpProxyHost(body.Port, body.Prefix, body.Host); err != nil {
-				return err
-			}
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(RMV_HTTP_PROXY_HOST, body); err != nil {
+			return err
 		}
-
 	}
 	return nil
 }
 
 func (vermouth *Vermouth) addHttpProxyHost(body *httpProxyHostBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	if proxy.HostExists(body.Prefix, body.Host) {
+		return errors.New("host already exists")
+	}
 	switch vermouth.Mode {
-	case "stand":
-		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
-		if !ok {
-			return ErrHttpProxyNotExists
-		}
+	case Stand:
 		proxy.AddHost(body.Prefix, body.Host)
-	case "cluster":
-		if !vermouth.Ctx.HttpReverseProxyList[body.Port].HostExists(body.Prefix, body.Host) {
-			if err := vermouth.RaftNode.addHttpProxyHost(body); err != nil {
-				return err
-			}
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(ADD_HTTP_PROXY_HOST, body); err != nil {
+			return err
 		}
-
 	}
 	return nil
 }
 
 func (vermouth *Vermouth) addBlackList(body *httpBlackListBody) error {
 	switch vermouth.Mode {
-	case "stand":
+	case Stand:
 		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
 		if !ok {
 			return ErrHttpProxyNotExists
 		}
 		proxy.AddBlackList(body.Ips)
-	case "cluster":
-		if err := vermouth.RaftNode.addBlackList(body.Port, body.Ips); err != nil {
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(ADD_HTTP_BLACK_LIST, body); err != nil {
 			return err
 		}
 	}
@@ -106,14 +108,14 @@ func (vermouth *Vermouth) addBlackList(body *httpBlackListBody) error {
 
 func (vermouth *Vermouth) removeBlackList(body *httpBlackListBody) error {
 	switch vermouth.Mode {
-	case "stand":
+	case Stand:
 		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
 		if !ok {
 			return ErrHttpProxyNotExists
 		}
 		proxy.RemoveBlackList(body.Ips)
-	case "cluster":
-		if err := vermouth.RaftNode.removeBlackList(body.Port, body.Ips); err != nil {
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(RMV_HTTP_BLACK_LIST, body); err != nil {
 			return err
 		}
 	}
@@ -121,15 +123,15 @@ func (vermouth *Vermouth) removeBlackList(body *httpBlackListBody) error {
 }
 
 func (vermouth *Vermouth) setRateLimiter(body *httpRateLimiterBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
 	switch vermouth.Mode {
-	case "stand":
-		proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
-		if !ok {
-			return ErrHttpProxyNotExists
-		}
+	case Stand:
 		proxy.SetRateLimit(body.Prefix, body.Url, body.Type, body.Volumn, body.Speed)
-	case "cluster":
-		if err := vermouth.RaftNode.setRateLimiter(body); err != nil {
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(SET_RATE_LIMITER, body); err != nil {
 			return err
 		}
 	}
@@ -143,16 +145,16 @@ func (vermouth *Vermouth) addHttpProxy(body *addHttpProxyBody) error {
 		return ErrHttpProxyAlreayExists
 	}
 	switch vermouth.Mode {
-	case "stand":
-		proxy :=  NewHttpReverseProxy(config.HttpProxyArgs{
+	case Stand:
+		proxy := NewHttpReverseProxy(config.HttpProxyArgs{
 			Port:         body.Port,
 			PrefixerType: body.PrefixType,
 			Paths:        []config.HttpProxyPathArgs{},
 		})
 		vermouth.Ctx.AddHttpReverseProxy(proxy)
-		go proxy.Run()
-	case "cluster":
-		if err := vermouth.RaftNode.addHttpProxy(body); err != nil {
+		proxy.Run()
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(ADD_HTTP_PROXY, body); err != nil {
 			return err
 		}
 	}
@@ -165,10 +167,49 @@ func (vermouth *Vermouth) changeStatic(body *httpChangeStatic) error {
 		return ErrHttpProxyNotExists
 	}
 	switch vermouth.Mode {
-	case "stand":
+	case Stand:
 		proxy.changeStatic(body.Prefix)
-	case "cluster":
-		if err := vermouth.RaftNode.changeStatic(body); err != nil {
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(CHG_STATIC, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (vermouth *Vermouth) changeLb(body *httpChangeLbBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	balancer := proxy.prefixMapping.GetBalancer(body.Prefix)
+	if balancer == nil {
+		return errors.New("prefix have no balancer")
+	}
+	if balancer.Mode() == body.Lb {
+		return nil
+	}
+	switch vermouth.Mode {
+	case Stand:
+		proxy.changeLb(body.Prefix, body.Lb)
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(CHG_LB, body); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (vermouth *Vermouth) changeProxyAvailable(body *changeHttpProxyStateBody) error {
+	proxy, ok := vermouth.Ctx.HttpReverseProxyList[body.Port]
+	if !ok {
+		return ErrHttpProxyNotExists
+	}
+	switch vermouth.Mode {
+	case Stand:
+		proxy.changeState(body.State)
+	case Cluster:
+		if err := vermouth.RaftNode.AppendLogEntry(CHG_STATE, body); err != nil {
 			return err
 		}
 	}

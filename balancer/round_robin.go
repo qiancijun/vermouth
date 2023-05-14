@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"net/http"
 	"sync"
 
 	"github.com/qiancijun/vermouth/logger"
@@ -20,7 +21,7 @@ const (
 )
 
 func init() {
-	factories["round-robin"] = NewRoundRobin
+	factories[TypeRoundRobin] = NewRoundRobin
 }
 
 func NewRoundRobin(hosts []string) Balancer {
@@ -55,7 +56,7 @@ func (r *RoundRobin) Remove(host string) {
 	}
 }
 
-func (r *RoundRobin) Balance(_ string) (string, error) {
+func (r *RoundRobin) Balance(_ string, _ *http.Request) (string, error) {
 	r.RLock()
 	defer r.RUnlock()
 	if len(r.hosts) == 0 {

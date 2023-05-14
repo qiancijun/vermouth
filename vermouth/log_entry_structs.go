@@ -65,3 +65,9 @@ type httpChangeStatic struct {
 	Port   int64  `json:"port"`
 	Prefix string `json:"prefix"`
 }
+
+type httpChangeLbBody struct {
+	Port int64 `json:"port"`
+	Prefix string `json:"prefix"`
+	Lb string `json:"lb"`
+}

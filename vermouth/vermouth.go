@@ -114,3 +114,8 @@ func (vermouth *Vermouth) Available() bool {
 	role := vermouth.RaftNode.Raft.State()
 	return role == raft.Follower || role == raft.Leader
 }
+
+
+func (vermouth *Vermouth) GetHttpProxy(port int64) *HttpReverseProxy {
+	return vermouth.Ctx.HttpReverseProxyList[port]
+}

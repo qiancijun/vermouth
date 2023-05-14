@@ -33,106 +33,12 @@ func (r *RaftNodeInfo) writeLogEntry(opt uint16, data []byte) error {
 	return nil
 }
 
-func (r *RaftNodeInfo) addHttpProxy(body *addHttpProxyBody) error {
+func (r *RaftNodeInfo) AppendLogEntry(option uint16, body interface{}) error {
 	data, err := encode(body)
 	if err != nil {
 		return err
 	}
-	if err = r.writeLogEntry(ADD_HTTP_PROXY, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) addHttpProxyPrefix(body *addHttpProxyPrefixBody) error {
-	// body := &addHttpProxyPrefixBody{port,static, prefix, balanceType, hosts}
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(ADD_HTTP_PROXY_PREFIX, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) removeHttpProxyPrefix(port int64, prefix string) error {
-	body := &removeHttpProxyPrefixBody{port, prefix}
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(RMV_HTTP_PROXY_PREFIX, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) addHttpProxyHost(body *httpProxyHostBody) error {
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(ADD_HTTP_PROXY_HOST, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) removeHttpProxyHost(port int64, prefix, host string) error {
-	body := &httpProxyHostBody{port, prefix, host}
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(RMV_HTTP_PROXY_HOST, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) addBlackList(port int64, ips []string) error {
-	body := &httpBlackListBody{port, ips}
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(ADD_HTTP_BLACK_LIST, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) removeBlackList(port int64, ips []string) error {
-	body := &httpBlackListBody{port, ips}
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(RMV_HTTP_BLACK_LIST, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *RaftNodeInfo) setRateLimiter(body *httpRateLimiterBody) error {
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(SET_RATE_LIMITER, data); err != nil {
-		return err
-	}
-	return nil
-}
-
-
-func (r *RaftNodeInfo) changeStatic(body *httpChangeStatic) error {
-	data, err := encode(body)
-	if err != nil {
-		return err
-	}
-	if err = r.writeLogEntry(CHG_STATIC, data); err != nil {
+	if err = r.writeLogEntry(option, data); err != nil {
 		return err
 	}
 	return nil

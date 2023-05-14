@@ -38,16 +38,15 @@ hosts = [
 balanceMode = "round-robin"
 pattern = "/api2"
 hosts = [
-    "192.168.3.1:8080",
-    "192.168.3.2:8080",
-    "192.168.3.3:8080",
+    "127.0.0.1:8080",
+    "127.0.0.1:8081",
 ]
 
 # [[discovery]]
 # port = 9000
 # namespace = "zookeeper"
 # address = [
-#     "localhost:2181"
+#     "127.0.0.1:2181"
 # ]
 # connectTimeout = 10
 
@@ -61,10 +60,10 @@ method = "http"
 # if use http to join cluster, leaderAddress must be the leader's http server address
 # otherwise must be leader's rpc address
 leaderAddress = "192.168.74.1:9119"
-snapshotInterval = 10
-snapshotThreshold = 1
-heartbeatTimeout = 2
-electionTimeout = 2
+snapshotInterval = 30
+snapshotThreshold = 2
+heartbeatTimeout = 5
+electionTimeout = 5
 
 # root logger use for vermouth, can config multi stream to output
 [[log]]

@@ -2,10 +2,12 @@ package prefix
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/qiancijun/vermouth/balancer"
+	"github.com/qiancijun/vermouth/logger"
 )
 
 // HashPrefixer 是一种最简单的前缀匹配方式
@@ -71,7 +73,7 @@ func (p *HashPrefixer) GetBalancer(prefixPath string) balancer.Balancer {
 // 哈希前缀匹配器算法流程：时间复杂度O(m), m 为 len(apiPath)
 // 1. 对 apiPath 地址拆分，根据“/”拆分
 // 2. 依次查询匹配
-func (p *HashPrefixer) MappingPath(apiPath string) (string, string, string, error) {
+func (p *HashPrefixer) MappingPath(apiPath string, r *http.Request) (string, string, string, error) {
 	p.RLock()
 	defer p.RUnlock()
 	// 第一个元素是空需要略过
@@ -96,7 +98,10 @@ func (p *HashPrefixer) MappingPath(apiPath string) (string, string, string, erro
 	if !ok {
 		return "", "", "", PathNotFoundError
 	}
-	host, err := b.Balance("")
+	balanceUrl := ""
+	
+	logger.Debugf("balance url: %s", balanceUrl)
+	host, err := b.Balance(balanceUrl, r)
 	if err != nil {
 		return "", "", "", err
 	}

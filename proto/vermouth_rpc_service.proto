@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 option go_package = "./pb";
+option java_package = "./pb";
 
 package vermouth_grpc;
 
@@ -23,6 +24,12 @@ message JoinClusterReq {
     string tcpAddress = 2;
 }
 
+message LoadBalanceReq {
+    int64 port = 1;
+    string prefix = 2;
+    string fact = 3;
+}
+
 message Res {
     string message = 1;
 }
@@ -31,4 +38,5 @@ service VermouthGrpc {
     rpc RegisterToProxy(RegisterToProxyReq) returns (Res); // 注册
     rpc Cancel(CancalReq) returns (Res); // 注销
     rpc JoinCluster(JoinClusterReq) returns (Res);
+    rpc LoadBalance(LoadBalanceReq) returns(Res);
 }

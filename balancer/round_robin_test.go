@@ -98,7 +98,7 @@ func TestRoundRobin_Balance(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			reply, err := c.lb.Balance(c.args)
+			reply, err := c.lb.Balance(c.args, nil)
 			assert.Equal(t, c.expect.reply, reply)
 			assert.Equal(t, c.expect.err, err)
 		})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/elastic/go-sysinfo"
 	"github.com/hashicorp/raft"
+	"github.com/qiancijun/vermouth/balancer"
 	"github.com/qiancijun/vermouth/logger"
 	"github.com/qiancijun/vermouth/utils"
 	"github.com/spf13/viper"
@@ -46,9 +47,11 @@ func NewHttpServer(port int64) *HttpServer {
 	httpServer.addHandler("/http/proxy", httpServer.getHttpProxyInfo)
 	httpServer.addHandler("/http/set/rate", httpServer.doSetRateLimiter)
 	httpServer.addHandler("/http/change/static", httpServer.doChangeStatic)
+	httpServer.addHandler("/http/change/lb", httpServer.doChangeLb)
+	httpServer.addHandler("/http/lb/list", httpServer.doGetBalancerType)
 	httpServer.addHandler("/meminfo", httpServer.getMeminfo)
 	httpServer.addHandler("/sysinfo", httpServer.getSysinfo)
-	httpServer.Mux.Handle("/", http.FileServer(http.Dir("./static")))
+	httpServer.Mux.Handle("/", http.FileServer(http.Dir("../static")))
 
 	return httpServer
 }
@@ -179,14 +182,19 @@ func (s *HttpServer) doChangeHttpProxyState(w http.ResponseWriter, r *http.Reque
 		logger.Error(err.Error())
 		return
 	}
-	proxy := s.Ctx.HttpReverseProxyList[body.Port]
-	if body.State == 1 {
-		proxy.Start()
-	} else if body.State == 2 {
-		proxy.Stop()
-	} else {
-		proxy.Close()
+	// proxy := s.Ctx.HttpReverseProxyList[body.Port]
+	if err := VermouthPeer().changeProxyAvailable(body); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err.Error())
+		return
 	}
+	// if body.State == 1 {
+	// 	proxy.Start()
+	// } else if body.State == 2 {
+	// 	proxy.Stop()
+	// } else {
+	// 	proxy.Close()
+	// }
 	w.Write([]byte("success"))
 }
 
@@ -404,6 +412,40 @@ func (s *HttpServer) doSetRateLimiter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write([]byte("success"))
+}
+
+func (s *HttpServer) doGetBalancerType(w http.ResponseWriter, r *http.Request) {
+	lb := balancer.GetBalancerType()
+	data, err := utils.EncodeToJson(lb)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
+}
+
+func (s *HttpServer) doChangeLb(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.checkWritePermission() {
+		w.Write([]byte("Not Leader"))
+		return
+	}
+	body := &httpChangeLbBody{}
+	if err := utils.ReadFromRequest(r, body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		logger.Error(err.Error())
+		return
+	}
+	logger.Debugf("[httpServer] change load balance request data: {port: %d, prefix: %s, lb: %s}", body.Port, body.Prefix, body.Lb)
+	if err := VermouthPeer().changeLb(body); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err.Error())
+		return
+	}
+	w.Write([]byte(Success))
 }
 
 func (s *HttpServer) getMeminfo(w http.ResponseWriter, r *http.Request) {

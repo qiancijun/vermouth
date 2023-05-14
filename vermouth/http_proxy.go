@@ -202,9 +202,10 @@ func (proxy *HttpReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// 第二步
-	prefix, apiPath, realPath, err := proxy.prefixMapping.MappingPath(r.URL.Path)
+	prefix, apiPath, realPath, err := proxy.prefixMapping.MappingPath(r.URL.Path, r)
 	if err != nil {
-		logger.Debugf("[httpProxy:%d] user try to access unknown proxy path", proxy.Port)
+		user := utils.RemoteIp(r)
+		logger.Debugf("[httpProxy:%d] user %s try to access unknown proxy path",  proxy.Port, user)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -243,6 +244,24 @@ func (proxy *HttpReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	proxy.forwardToSpecficPath(w, r, realPath)
 }
 
+// LoadBalance 方法返回对应 Prefix 下的一个特定的地址
+// prefix 相当于是注册中心了
+// 如果 prefix 不存在或发生错误返回空字符串
+func (proxy *HttpReverseProxy) LoadBalance(prefix, balanceUrl string) string {
+	proxy.RLock()
+	defer proxy.RUnlock()
+	lb := proxy.prefixMapping.GetBalancer(prefix)
+	if lb == nil {
+		return ""
+	}
+	addr, err := lb.Balance(balanceUrl, nil)
+	if err != nil {
+		logger.Errorf("[httpProxy:%d] LoadBalance has error, %s", proxy.Port, err.Error())
+		return ""
+	}
+	return addr
+}
+
 func (proxy *HttpReverseProxy) AddPrefix(prefix, algo string, hosts []string, isStatic bool) {
 	proxy.Lock()
 	defer proxy.Unlock()
@@ -253,7 +272,10 @@ func (proxy *HttpReverseProxy) AddPrefix(prefix, algo string, hosts []string, is
 		return
 	}
 	proxy.StaticMapping[prefix] = isStatic
-	proxy.prefixMapping.Add(prefix, balancer.Algorithm(algo), hosts)
+	err := proxy.prefixMapping.Add(prefix, balancer.Algorithm(algo), hosts)
+	if err != nil {
+		logger.Errorf("can't add prefix, {prefix: %s, lb: %s, hosts: %v}, err: %s", prefix, algo, hosts, err.Error())
+	}
 	proxy.BalancerType[prefix] = algo
 	proxy.Paths[prefix] = proxy.prefixMapping.GetBalancer(prefix).Hosts()
 }
@@ -395,7 +417,12 @@ func (proxy *HttpReverseProxy) RemoveBlackList(ips []string) {
 func (proxy *HttpReverseProxy) SetRateLimit(prefix, apiPath, limiterType string, init int, speed int64) {
 	proxy.Lock()
 	defer proxy.Unlock()
-	compeleteUrl := prefix + apiPath
+	var compeleteUrl string
+	if prefix == "/" {
+		compeleteUrl = apiPath
+	} else {
+		compeleteUrl = prefix + apiPath
+	}
 	limiter, ok := proxy.rateLimiters[compeleteUrl]
 	if !ok {
 		logger.Debugf("[httpProxy:%d] not found %s rate limiter, create a qps limiter", proxy.Port, compeleteUrl)
@@ -456,6 +483,26 @@ func (proxy *HttpReverseProxy) changeStatic(prefix string) {
 	proxy.StaticMapping[prefix] = !old
 }
 
+// 修改负载均衡器，等同于删了再创建
+func (proxy *HttpReverseProxy) changeLb(prefix, lb string) {
+	hosts := proxy.prefixMapping.GetBalancer(prefix).Hosts()
+	static := proxy.StaticMapping[prefix]
+	logger.Debugf("%v, %v", hosts, static)
+	proxy.RemovePrefix(prefix)
+	proxy.AddPrefix(prefix, lb, hosts, static)
+}
+
+func (proxy *HttpReverseProxy) changeState(state int) {
+	switch state {
+	case 1:
+		proxy.Start()
+	case 2:
+		proxy.Stop()
+	default:
+		proxy.Close()
+	}
+}
+
 // TODO channel 统一处理
 func (proxy *HttpReverseProxy) HandleNamespaceEvent() {
 	for {
@@ -487,5 +534,6 @@ func (proxy *HttpReverseProxy) HandleNamespaceEvent() {
 }
 
 func (proxy *HttpReverseProxy) isStaticResource(prefix string) bool {
-	return proxy.StaticMapping[prefix]
+	static, ok := proxy.StaticMapping[prefix]
+	return ok && static
 }
